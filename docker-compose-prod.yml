@@ -1,0 +1,65 @@
+version: '3.1'
+services:
+  db:
+    image: mysql:5.7
+    secrets:
+      - db_root_password
+      - db_kuasai_password
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      MYSQL_DATABASE: dbkuasai
+      MYSQL_USER: cilsykuasaiuser
+      MYSQL_PASSWORD_FILE: /run/secrets/db_kuasai_password
+    volumes:
+      - mysql-data1:/var/lib/mysql
+    networks:
+      - int_net
+  pma:
+    image: phpmyadmin/phpmyadmin:4.8.5
+    depends_on:
+      - db
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - proxy_net
+      - int_net
+  web:
+    image: dikadhr/web:1
+    depends_on:
+      - db
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - proxy_net
+      - int_net
+  proxy:
+    image: dikadhr/proxy:custom-1
+    ports:
+      - '80:80'
+    depends_on:
+      - web
+      - pma
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+    networks:
+      - ext_net
+      - proxy_net
+
+secrets:
+  db_root_password:
+    external: true
+  db_kuasai_password:
+    external: true
+volumes:
+  mysql-data1:
+networks:
+  int_net:
+    driver: overlay
+  proxy_net:
+    driver: overlay
+  ext_net:
+    driver: overlay
